@@ -142,6 +142,32 @@ object Analytics extends Logging {
         }.reduce(_ + _) / 3)
         sc.stop()
 
+      case "kcore" =>
+          val outFname = options.remove("output").getOrElse("")
+          options.foreach{
+              case (opt, _) => throw new IllegalArgumentException("Invalid option: "+ opt)
+          }
+
+          println("======================================")
+          println("|      k-core decomposition          |")
+          println("======================================")
+
+          val sc = new SparkContext(conf.setAppName("K-core decomposition("+fname+")"))
+          val graph = GraphLoader.edgeListFile(sc,fname,
+              numEdgePartitions = numEPart,
+              edgeStorageLevel = edgeStorageLevel,
+              vertexStorageLevel = vertexStorageLevel)
+              .partitionBy(partitionStrategy.getOrElse(RandomVertexCut)).cache()
+
+          val kCore = KCoreDecomposition.run(graph)
+
+          if(! outFname.isEmpty){
+              logWarning("Saving pageranks of pages to " + outFname)
+              kCore.map { case (id,k) => id + "\t" + k}.saveAsTextFile(outFname)
+          }
+
+          sc.stop()
+
       case _ =>
         println("Invalid task type.")
     }
